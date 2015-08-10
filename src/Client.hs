@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+
 module Client
     ( getServerStatus
     , stopServer
@@ -6,35 +8,47 @@ module Client
 
 import Control.Exception (tryJust)
 import Control.Monad (guard)
-import Network (PortID(UnixSocket), connectTo)
+import Network ( connectTo
+#ifdef mingw32_HOST_OS
+               , PortID(PortNumber)
+#else
+               , PortID(UnixSocket)
+#endif
+               )
 import System.Exit (exitFailure, exitWith)
 import System.IO (Handle, hClose, hFlush, hGetLine, hPutStrLn, stderr)
 import System.IO.Error (isDoesNotExistError)
 
+#ifndef mingw32_HOST_OS
 import Daemonize (daemonize)
-import Server (createListenSocket, startServer)
+#endif
+import Server (SocketDesc, createListenSocket, startServer)
 import Types (ClientDirective(..), Command(..), ServerDirective(..))
 import Util (readMaybe)
 
-connect :: FilePath -> IO Handle
+connect :: SocketDesc -> IO Handle
 connect sock = do
+#ifdef mingw32_HOST_OS
+    connectTo "localhost" (PortNumber $ fromIntegral sock)
+#else
     connectTo "" (UnixSocket sock)
+#endif
 
-getServerStatus :: FilePath -> IO ()
+getServerStatus :: SocketDesc -> IO ()
 getServerStatus sock = do
     h <- connect sock
     hPutStrLn h $ show SrvStatus
     hFlush h
     startClientReadLoop h
 
-stopServer :: FilePath -> IO ()
+stopServer :: SocketDesc -> IO ()
 stopServer sock = do
     h <- connect sock
     hPutStrLn h $ show SrvExit
     hFlush h
     startClientReadLoop h
 
-serverCommand :: FilePath -> Command -> [String] -> IO ()
+serverCommand :: SocketDesc -> Command -> [String] -> IO ()
 serverCommand sock cmd ghcOpts = do
     r <- tryJust (guard . isDoesNotExistError) (connect sock)
     case r of
@@ -42,10 +56,14 @@ serverCommand sock cmd ghcOpts = do
             hPutStrLn h $ show (SrvCommand cmd ghcOpts)
             hFlush h
             startClientReadLoop h
+#ifdef mingw32_HOST_OS
+        Left _ -> error "no server"
+#else
         Left _ -> do
             s <- createListenSocket sock
             daemonize False $ startServer sock (Just s)
             serverCommand sock cmd ghcOpts
+#endif
 
 startClientReadLoop :: Handle -> IO ()
 startClientReadLoop h = do

@@ -1,10 +1,19 @@
+{-# LANGUAGE CPP #-}
+
 module Server where
 
 import Control.Exception (bracket, finally, handleJust, tryJust)
 import Control.Monad (guard)
 import Data.IORef (IORef, newIORef, readIORef, writeIORef)
+import Data.Word (Word16)
 import GHC.IO.Exception (IOErrorType(ResourceVanished))
-import Network (PortID(UnixSocket), Socket, accept, listenOn, sClose)
+import Network (
+#ifdef mingw32_HOST_OS
+                PortID(PortNumber)
+#else
+                PortID(UnixSocket)
+#endif
+                , Socket, accept, listenOn, sClose)
 import System.Directory (removeFile)
 import System.Exit (ExitCode(ExitSuccess))
 import System.IO (Handle, hClose, hFlush, hGetLine, hPutStrLn)
@@ -14,20 +23,33 @@ import CommandLoop (newCommandLoopState, startCommandLoop)
 import Types (ClientDirective(..), Command, ServerDirective(..))
 import Util (readMaybe)
 
-createListenSocket :: FilePath -> IO Socket
-createListenSocket socketPath =
-    listenOn (UnixSocket socketPath)
+#ifdef mingw32_HOST_OS
+type SocketDesc = Word16     -- Word16 instead of PortNumber to support Data/Typeable
+#else
+type SocketDesc = UnixSocket
+#endif
 
-startServer :: FilePath -> Maybe Socket -> IO ()
-startServer socketPath mbSock = do
+
+createListenSocket :: SocketDesc -> IO Socket
+createListenSocket socketDesc =
+#ifdef mingw32_HOST_OS
+    listenOn (PortNumber $ fromIntegral socketDesc)
+#else
+    listenOn (UnixSocket socketDesc)
+#endif
+
+startServer :: SocketDesc -> Maybe Socket -> IO ()
+startServer socketDesc mbSock = do
     case mbSock of
-        Nothing -> bracket (createListenSocket socketPath) cleanup go
+        Nothing -> bracket (createListenSocket socketDesc) cleanup go
         Just sock -> (go sock) `finally` (cleanup sock)
     where
     cleanup :: Socket -> IO ()
     cleanup sock = do
         sClose sock
+#ifndef mingw32_HOST_OS
         removeSocketFile
+#endif
 
     go :: Socket -> IO ()
     go sock = do
@@ -35,11 +57,13 @@ startServer socketPath mbSock = do
         currentClient <- newIORef Nothing
         startCommandLoop state (clientSend currentClient) (getNextCommand currentClient sock) [] Nothing
 
+#ifndef mingw32_HOST_OS
     removeSocketFile :: IO ()
     removeSocketFile = do
         -- Ignore possible error if socket file does not exist
-        _ <- tryJust (guard . isDoesNotExistError) $ removeFile socketPath
+        _ <- tryJust (guard . isDoesNotExistError) $ removeFile socketDesc
         return ()
+#endif
 
 clientSend :: IORef (Maybe Handle) -> ClientDirective -> IO ()
 clientSend currentClient clientDirective = do

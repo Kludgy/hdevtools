@@ -16,6 +16,8 @@ import Data.Version (showVersion)
 import Paths_hdevtools (version)
 #endif
 
+import Server (SocketDesc)
+
 programVersion :: String
 programVersion =
 #ifdef CABAL
@@ -33,30 +35,30 @@ fullVersion =
 
 data HDevTools
     = Admin
-        { socket :: Maybe FilePath
+        { socket :: Maybe SocketDesc
         , start_server :: Bool
         , noDaemon :: Bool
         , status :: Bool
         , stop_server :: Bool
         }
     | Check
-        { socket :: Maybe FilePath
+        { socket :: Maybe SocketDesc
         , ghcOpts :: [String]
         , file :: String
         }
     | ModuleFile
-        { socket :: Maybe FilePath
+        { socket :: Maybe SocketDesc
         , ghcOpts :: [String]
         , module_ :: String
         }
     | Info
-        { socket :: Maybe FilePath
+        { socket :: Maybe SocketDesc
         , ghcOpts :: [String]
         , file :: String
         , identifier :: String
         }
     | Type
-        { socket :: Maybe FilePath
+        { socket :: Maybe SocketDesc
         , ghcOpts :: [String]
         , file :: String
         , line :: Int
@@ -104,9 +106,17 @@ dummyType = Type
     , col = 0
     }
 
+socketAnn :: Annotate Ann
+socketAnn =
+#ifdef mingw32_HOST_OS
+    socket   := def += typ "PORT" += help "localhost port number to use"
+#else
+    socket   := def += typFile += help "socket file to use"
+#endif
+
 admin :: Annotate Ann
 admin = record dummyAdmin
-    [ socket   := def += typFile += help "socket file to use"
+    [ socketAnn
     , start_server   := def            += help "start server"
     , noDaemon := def            += help "do not daemonize (only if --start-server)"
     , status   := def            += help "show status of server"
@@ -115,21 +125,21 @@ admin = record dummyAdmin
 
 check :: Annotate Ann
 check = record dummyCheck
-    [ socket   := def += typFile += help "socket file to use"
+    [ socketAnn
     , ghcOpts  := def += typ "OPTION"   += help "ghc options"
     , file     := def += typFile      += argPos 0 += opt ""
     ] += help "Check a haskell source file for errors and warnings"
 
 moduleFile :: Annotate Ann
 moduleFile = record dummyModuleFile
-    [ socket   := def += typFile += help "socket file to use"
+    [ socketAnn
     , ghcOpts  := def += typ "OPTION" += help "ghc options"
     , module_  := def += typ "MODULE" += argPos 0
     ] += help "Get the haskell source file corresponding to a module name"
 
 info :: Annotate Ann
 info = record dummyInfo
-    [ socket     := def += typFile += help "socket file to use"
+    [ socketAnn
     , ghcOpts    := def += typ "OPTION" += help "ghc options"
     , file       := def += typFile      += argPos 0 += opt ""
     , identifier := def += typ "IDENTIFIER" += argPos 1
@@ -137,7 +147,7 @@ info = record dummyInfo
 
 type_ :: Annotate Ann
 type_ = record dummyType
-    [ socket   := def += typFile += help "socket file to use"
+    [ socketAnn
     , ghcOpts  := def += typ "OPTION" += help "ghc options"
     , file     := def += typFile      += argPos 0 += opt ""
     , line     := def += typ "LINE"   += argPos 1

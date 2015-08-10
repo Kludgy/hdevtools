@@ -64,5 +64,7 @@ executable hdevtools
                        ghc-paths,
                        syb,
                        network,
-                       time,
-                       unix
+                       time
+
+  if !os(windows)
+    build-depends:     unix

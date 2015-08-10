@@ -1,3 +1,11 @@
+{-# LANGUAGE CPP #-}
+
+#ifdef mingw32_HOST_OS
+
+module Daemonize () where
+
+#else
+
 module Daemonize
     ( daemonize
     ) where
@@ -28,3 +36,5 @@ daemonize exit program = do
         mapM_ (dupTo nullFd) [stdInput, stdOutput, stdError]
         closeFd nullFd
         program
+
+#endif
