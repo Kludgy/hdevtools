@@ -2,12 +2,26 @@ module Types
     ( ServerDirective(..)
     , ClientDirective(..)
     , Command(..)
+    , CommandExtra(..)
+    , emptyCommandExtra
     ) where
 
 import System.Exit (ExitCode)
 
+data CommandExtra = CommandExtra
+  { ceGhcOptions  :: [String]
+  , ceCabalConfig :: Maybe FilePath
+  , cePath        :: Maybe FilePath
+  } deriving (Read, Show)
+
+emptyCommandExtra :: CommandExtra
+emptyCommandExtra = CommandExtra { ceGhcOptions  = []
+                                 , ceCabalConfig = Nothing
+                                 , cePath        = Nothing
+                                 }
+
 data ServerDirective
-    = SrvCommand Command [String]
+    = SrvCommand Command CommandExtra
     | SrvStatus
     | SrvExit
     deriving (Read, Show)

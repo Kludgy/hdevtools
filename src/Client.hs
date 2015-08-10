@@ -23,7 +23,7 @@ import System.IO.Error (isDoesNotExistError)
 import Daemonize (daemonize)
 #endif
 import Server (SocketDesc, createListenSocket, startServer)
-import Types (ClientDirective(..), Command(..), ServerDirective(..))
+import Types (ClientDirective(..), Command(..), CommandExtra(..), ServerDirective(..))
 import Util (readMaybe)
 
 connect :: SocketDesc -> IO Handle
@@ -48,12 +48,12 @@ stopServer sock = do
     hFlush h
     startClientReadLoop h
 
-serverCommand :: SocketDesc -> Command -> [String] -> IO ()
-serverCommand sock cmd ghcOpts = do
+serverCommand :: SocketDesc -> Command -> CommandExtra -> IO ()
+serverCommand sock cmd cmdExtra = do
     r <- tryJust (guard . isDoesNotExistError) (connect sock)
     case r of
         Right h -> do
-            hPutStrLn h $ show (SrvCommand cmd ghcOpts)
+            hPutStrLn h $ show (SrvCommand cmd cmdExtra)
             hFlush h
             startClientReadLoop h
 #ifdef mingw32_HOST_OS
@@ -62,7 +62,7 @@ serverCommand sock cmd ghcOpts = do
         Left _ -> do
             s <- createListenSocket sock
             daemonize False $ startServer sock (Just s)
-            serverCommand sock cmd ghcOpts
+            serverCommand sock cmd cmdExtra
 #endif
 
 startClientReadLoop :: Handle -> IO ()
