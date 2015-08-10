@@ -69,7 +69,8 @@ executable hdevtools
                        syb,
                        network,
                        process >= 1.2.3.0,
-                       time
+                       time,
+                       unix-compat
 
   if !os(windows)
     build-depends:     unix

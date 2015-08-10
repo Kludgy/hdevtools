@@ -21,7 +21,7 @@ import qualified GHC
 import qualified GHC.Paths
 import qualified Outputable
 import System.Posix.Types (EpochTime)
-import System.Posix.Files (getFileStatus, modificationTime)
+import System.PosixCompat.Files (getFileStatus, modificationTime)
 
 import Types (ClientDirective(..), Command(..), CommandExtra(..))
 import Info (getIdentifierInfo, getType)

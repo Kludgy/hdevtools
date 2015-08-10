@@ -80,7 +80,7 @@ main = do
                     , ceCabalConfig = mCabalFile
                     , cePath        = argPath
                     }
-    let sock = getSocketDesc $ socket args
+    let sock = getSocketDesc mCabalFile $ socket args
     case args of
         Admin {} -> doAdmin sock args extra
         Check {} -> doCheck sock args extra
